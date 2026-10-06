@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+runs/
+wandb/
+.env
+data/
+.venv/
+run.log
+*.tar.gz

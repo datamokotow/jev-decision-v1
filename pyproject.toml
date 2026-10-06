@@ -1,0 +1,13 @@
+[project]
+name = "jev-decision"
+version = "0.1.0"
+description = "Marker-scoring decision model (choice / score / noul) on top of any HF encoder"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.2", "transformers>=4.45", "safetensors", "peft>=0.10"]
+
+[project.optional-dependencies]
+data = ["datasets"]
+dev = ["pytest", "tokenizers"]
+
+[tool.setuptools]
+packages = ["jev"]
