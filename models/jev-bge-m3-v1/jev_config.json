@@ -1,0 +1,8 @@
+{
+  "format_version": 1,
+  "architecture": "DecisionModel",
+  "backbone": "BAAI/bge-m3",
+  "encoder": "adapter",
+  "head_layers": 2,
+  "dropout": 0.1
+}

@@ -207,3 +207,29 @@ def test_time_limit_stops_training_and_saves(tiny, tmp_path):
     train_mod.main(_train_args(tiny, train, out, val, ["--epochs", "1000", "--time_limit_min", "0.05",
                                                        "--checkpoint_every_min", "0.02"]))
     assert (out / "jev_config.json").exists() and (out / "latest" / "jev_config.json").exists()
+
+
+def test_continue_training_adapter_checkpoint(tiny, tmp_path):
+    """--init on an adapter checkpoint (+ --lora, as in the corp recipe) must keep training the SAME adapter, not nest a new one."""
+    train, val, a, b = tmp_path / "t.jsonl", tmp_path / "v.jsonl", tmp_path / "a", tmp_path / "b"
+    write(train, make_easy(300, 1)); write(val, make_easy(50, 2))
+    train_mod.main(_train_args(tiny, train, a, val, ["--epochs", "1", "--lora", "4"]))
+    train_mod.main(_train_args(tiny, train, b, val, ["--epochs", "1", "--lora", "4", "--init", str(a)]))
+    assert json.loads((b / "jev_config.json").read_text())["encoder"] == "adapter"
+    from safetensors.torch import load_file
+    ka = set(load_file(a / "adapter" / "adapter_model.safetensors"))
+    kb = set(load_file(b / "adapter" / "adapter_model.safetensors"))
+    assert ka == kb  # same module names: nothing nested
+
+
+def test_head_split_into_parts_loads(tiny, tmp_path):
+    """A head split into <100 MB parts (GitHub limit) must load exactly like the whole file."""
+    from jev.model import DecisionModel
+    out = tmp_path / "ckpt"
+    m = DecisionModel.from_backbone(str(tiny / "backbone"), head_layers=1)
+    m.save_pretrained(out, backbone_name=str(tiny / "backbone"), mode="none")
+    data = (out / "head.safetensors").read_bytes(); (out / "head.safetensors").unlink()
+    h = len(data) // 2
+    (out / "head.safetensors.part00").write_bytes(data[:h]); (out / "head.safetensors.part01").write_bytes(data[h:])
+    m2 = DecisionModel.from_pretrained(out, backbone=str(tiny / "backbone"))
+    assert all(__import__("torch").equal(a, b) for a, b in zip(m.head_parameters(), m2.head_parameters()))

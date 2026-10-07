@@ -101,6 +101,8 @@ def main(argv=None):
     if args.freeze_encoder:
         for p in model.encoder.parameters():
             p.requires_grad = False
+    elif args.lora and hasattr(model.encoder, "peft_config"):
+        print("--init checkpoint already has a LoRA adapter: continuing to train it (ignoring --lora)")
     elif args.lora:
         from peft import LoraConfig, get_peft_model
         model.encoder = get_peft_model(model.encoder, LoraConfig(r=args.lora, lora_alpha=2 * args.lora,

@@ -115,12 +115,25 @@ class DecisionModel(nn.Module):
                 from peft import PeftModel
                 encoder = PeftModel.from_pretrained(encoder, str(root / "adapter"), is_trainable=True)
         model = cls(encoder, head_layers=config["head_layers"], dropout=config["dropout"])
-        head_state = load_file(str(root / HEAD_FILE), device=map_location)
+        head_state = _read_head(root, map_location)
         missing, unexpected = model.load_state_dict(head_state, strict=False)
         bad = [k for k in missing if not k.startswith("encoder.")]
         if bad or unexpected:
             raise ValueError(f"Head mismatch. missing={bad[:5]} unexpected={unexpected[:5]}")
         return model
+
+
+def _read_head(root, device="cpu"):
+    """head.safetensors, or head.safetensors.part00, .part01, ... (checkpoint split to fit GitHub's 100 MB file limit)."""
+    whole = root / HEAD_FILE
+    if whole.exists():
+        return load_file(str(whole), device=device)
+    parts = sorted(root.glob(HEAD_FILE + ".part*"))
+    if not parts:
+        raise FileNotFoundError(f"no {HEAD_FILE} (or {HEAD_FILE}.part*) in {root}")
+    from safetensors.torch import load
+    state = load(b"".join(p.read_bytes() for p in parts))
+    return {k: v.to(device) for k, v in state.items()}
 
 
 def tokenizer_path(directory, backbone=None):
